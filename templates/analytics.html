@@ -14,8 +14,8 @@
 <script>
 const D = {{ {'labels':labels,'revenues':revenues,'expenses':expenses,'balances':balances,'previous_revenues':previous_revenues,'previous_expenses':previous_expenses,'income_categories':category_income,'expense_categories':category_expense,'units':unit_rows}|tojson }};
 const money = value => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value);
-const palette={blue:'#3669c9',teal:'#148879',orange:'#db9553',purple:'#7961c5',gray:'#a8b4c7'};
-function plot(id,type,labels,series,options={}) {const el=document.getElementById(id);if(!el||!window.Chart)return;return new Chart(el,{type,data:{labels,datasets:series},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${money(c.parsed.y??c.parsed.x??c.parsed)}`}}},scales:type==='doughnut'?{}:{y:{ticks:{callback:v=>money(v)}}},...options}})}
+const palette={blue:'#233f71',teal:'#438e85',orange:'#c4a16b',purple:'#7961c5',gray:'#c3cbda'};
+function plot(id,type,labels,series,options={}) {const el=document.getElementById(id);if(!el||!window.Chart)return;if(series.every(s=>(s.data||[]).every(v=>!Number(v)))){el.style.display='none';const empty=document.createElement('div');empty.className='chart-empty';empty.textContent='Ainda não há movimentações para este gráfico. Os dados aparecerão após a aprovação dos lançamentos.';el.parentElement.appendChild(empty);return;}return new Chart(el,{type,data:{labels,datasets:series},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${money(c.parsed.y??c.parsed.x??c.parsed)}`}}},scales:type==='doughnut'?{}:{y:{ticks:{callback:v=>money(v)}}},...options}})}
 function ds(label,data,color){return {label,data,borderColor:color,backgroundColor:color,borderWidth:2,tension:.28,borderRadius:5}}
 plot('chartMonthly','bar',D.labels,[ds('Receitas',D.revenues,palette.teal),ds('Despesas',D.expenses,palette.orange)]);
 plot('chartBalance','line',D.labels,[ds('Resultado',D.balances,palette.blue)]);
