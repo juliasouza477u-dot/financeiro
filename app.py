@@ -208,6 +208,64 @@ def toggle_unit(unit_id):
     db.session.commit()
     return redirect(url_for('units'))
 
+@app.get('/analytics')
+@priest_only
+def analytics():
+    # Aggregate approved records only; use server-side access control.
+    from collections import defaultdict
+    from calendar import month_abbr
+    today = date.today()
+    try:
+        year = int(request.args.get('year', today.year))
+    except ValueError:
+        abort(400)
+    if year < 2000 or year > 2100: abort(400)
+    unit_id = request.args.get('unit_id', type=int)
+    if unit_id and not db.session.get(Unit, unit_id): abort(400)
+    q = Entry.query.filter(Entry.status == 'aprovado')
+    if unit_id: q = q.filter(Entry.unit_id == unit_id)
+    # Include prior year for year-over-year comparisons.
+    start = datetime(year-1, 1, 1, tzinfo=timezone.utc)
+    end = datetime(year+1, 1, 1, tzinfo=timezone.utc)
+    rows = q.filter(Entry.created_at >= start, Entry.created_at < end).all()
+    months = defaultdict(lambda: {'receita': Decimal('0'), 'despesa': Decimal('0')})
+    categories = defaultdict(lambda: Decimal('0'))
+    units_data = defaultdict(lambda: {'receita': Decimal('0'), 'despesa': Decimal('0')})
+    pending_bills = Decimal('0')
+    overdue_bills = Decimal('0')
+    upcoming_bills = Decimal('0')
+    for e in rows:
+        dt = e.created_at.date()
+        months[(dt.year, dt.month)][e.kind] += e.amount
+        if dt.year == year:
+            categories[(e.kind, e.category)] += e.amount
+            units_data[e.unit.name if e.unit else 'Sem unidade'][e.kind] += e.amount
+            if e.kind == 'despesa' and not e.paid_date:
+                pending_bills += e.amount
+                if e.due_date and e.due_date < today: overdue_bills += e.amount
+                elif e.due_date and e.due_date <= today.replace(day=28) + __import__('datetime').timedelta(days=35): upcoming_bills += e.amount
+    labels = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+    def series(y, kind): return [float(months[(y,m)][kind]) for m in range(1,13)]
+    revenues, expenses = series(year, 'receita'), series(year, 'despesa')
+    previous_revenues, previous_expenses = series(year-1, 'receita'), series(year-1, 'despesa')
+    total_revenue = sum(revenues)
+    total_expense = sum(expenses)
+    def percent(current, previous): return round((current-previous)/previous*100, 1) if previous else None
+    category_income = sorted([(k[1], float(v)) for k,v in categories.items() if k[0]=='receita'], key=lambda x:-x[1])[:12]
+    category_expense = sorted([(k[1], float(v)) for k,v in categories.items() if k[0]=='despesa'], key=lambda x:-x[1])[:12]
+    unit_rows = [{'name': name, 'income':float(t['receita']), 'expense':float(t['despesa']), 'balance':float(t['receita']-t['despesa'])} for name,t in units_data.items()]
+    unit_rows.sort(key=lambda x:-x['income'])
+    return render_template('analytics.html', year=year, selected_unit=unit_id,
+        units=Unit.query.order_by(Unit.name).all(), labels=labels, revenues=revenues,
+        expenses=expenses, previous_revenues=previous_revenues, previous_expenses=previous_expenses,
+        balances=[a-b for a,b in zip(revenues,expenses)],
+        total_revenue=total_revenue, total_expense=total_expense, balance=total_revenue-total_expense,
+        income_growth=percent(total_revenue,sum(previous_revenues)),
+        expense_growth=percent(total_expense,sum(previous_expenses)),
+        category_income=category_income, category_expense=category_expense,
+        unit_rows=unit_rows, pending_bills=pending_bills, overdue_bills=overdue_bills,
+        upcoming_bills=upcoming_bills)
+
 @app.get('/reports')
 @priest_only
 def reports():
