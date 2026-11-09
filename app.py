@@ -343,3 +343,15 @@ def create_user():
     print('Usuário criado.')
 
 if __name__ == '__main__': app.run(debug=False)
+
+
+@app.cli.command('seed-parish-units')
+def seed_parish_units():
+    """Cadastra a paróquia e a capela sem duplicar registros existentes."""
+    for name in ('Santa Terezinha do Menino Jesus', 'Capela Santa Luzia'):
+        if not Unit.query.filter_by(name=name).first():
+            db.session.add(Unit(name=name, kind='comunidade'))
+            click.echo(f'Criada unidade: {name}')
+        else:
+            click.echo(f'Unidade já existente: {name}')
+    db.session.commit()

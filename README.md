@@ -33,3 +33,15 @@
 - Ainda não há upload/armazenamento de comprovantes, conciliação bancária, orçamento por centro de custo, múltiplas alocações por lançamento, recorrência de contas, gráficos nem exportação PDF.
 - Necessários para produção: migrações versionadas, backup e teste de restauração, MFA, recuperação segura de conta, limitação de tentativas de login, controle de sessão, HTTPS, proteção de logs e dados pessoais, trilha de auditoria resistente a adulteração, conciliação e revisão contábil, política LGPD.
 - Use somente dados fictícios até que os controles de produção estejam implementados e testados.
+
+
+## Personalização paroquial
+A identidade visual usa a logo fornecida pela paróquia, o nome **Santa Terezinha do Menino Jesus** e a referência à **Capela Santa Luzia**.
+
+Após atualizar o código no Render, execute **uma única vez** no terminal local conectado ao Neon:
+
+```bash
+flask --app app seed-parish-units
+```
+
+O comando é idempotente e não remove nem altera lançamentos existentes. A paróquia e a capela são cadastradas como unidades do tipo `comunidade`, para permitir filtros separados nos relatórios. Não execute `init-db` em um banco de produção sem antes avaliar o estado do banco. Não envie `.env` ao GitHub.
